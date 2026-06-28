@@ -1,0 +1,36 @@
+# R / RStudio
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+*.Rcheck/
+*.tar.gz
+.Renviron
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Dados sensíveis e artefatos locais
+inst/extdata/*.sqlite
+inst/extdata/*.sqlite3
+inst/extdata/*.db
+logs/
+*.log
+
+# Variáveis de ambiente / segredos
+.env
+.env.*
+secrets.yml
+
+# Builds e cache
+docs/
+.quarto/
+_book/
+.cache/
+
+# Outputs do golem
+inst/app/www/*.min.css
+inst/app/www/*.min.js
+.httr-oauth
+.quarto

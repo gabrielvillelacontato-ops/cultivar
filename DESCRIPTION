@@ -1,0 +1,27 @@
+Package: cultivaR
+Title: Gestao de Preparo de Meios de Cultura em Laboratorio
+Version: 0.0.0.9000
+Authors@R: person("Mauro", "Villela", email = "gabrielvillelacontato@gmail.com", role = c("aut", "cre"))
+Description: Aplicativo Shiny para registro, calculo e rastreio do preparo de
+    meios de cultura em laboratorios de biotecnologia vegetal e microbiologia,
+    com trilha de auditoria conforme principios ALCOA+ e suporte a multiplos
+    operadores via PIN.
+License: Apache License (>= 2)
+Imports:
+    config (>= 0.3.2),
+    golem (>= 0.4.1),
+    shiny (>= 1.7.0),
+    DBI,
+    RSQLite,
+    pool,
+    dbplyr,
+    sodium,
+    logger
+Suggests:
+    testthat (>= 3.0.0),
+    shinytest2
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+Config/testthat/edition: 3
