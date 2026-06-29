@@ -1,0 +1,268 @@
+/* ===================================================================
+   CultivaR - estilo customizado
+   Carregado via bs_theme + bslib::bs_add_resources (ver app_ui.R)
+   ================================================================ */
+
+/* Variaveis de paleta (overrides leves do tema Flatly) */
+:root {
+  --cv-primary: #6c5ce7;        /* lilas TFF */
+  --cv-primary-soft: #a29bfe;
+  --cv-surface: #f7f7fb;
+  --cv-surface-card: #ffffff;
+  --cv-border: #e3e3ec;
+  --cv-text-muted: #6b6b80;
+  --cv-success-soft: #d4edda;
+  --cv-warning-soft: #fff3cd;
+  --cv-danger-soft: #f8d7da;
+}
+
+/* Fundo geral mais suave que branco puro */
+body {
+  background-color: var(--cv-surface);
+}
+
+/* ===================================================================
+   Alvos de toque (acessibilidade de bancada)
+   Botoes, inputs, badges clicaveis: minimo 48px de altura
+   ================================================================ */
+
+.btn,
+.form-control,
+.form-select,
+.input-group > .form-control {
+  min-height: 48px;
+  font-size: 1.05rem;
+}
+
+.btn-lg,
+.form-control-lg {
+  min-height: 56px;
+  font-size: 1.15rem;
+}
+
+/* Espacamento confortavel entre campos de formulario */
+.form-group,
+.shiny-input-container {
+  margin-bottom: 1rem;
+}
+
+/* Labels mais visiveis */
+.form-label,
+.control-label,
+.shiny-input-container > label {
+  font-weight: 500;
+  margin-bottom: 0.4rem;
+  font-size: 0.95rem;
+}
+
+/* ===================================================================
+   Cards
+   ================================================================ */
+
+.card {
+  border: 1px solid var(--cv-border);
+  border-radius: 10px;
+  background-color: var(--cv-surface-card);
+}
+
+.card-header {
+  background-color: var(--cv-surface);
+  font-weight: 600;
+  border-bottom: 1px solid var(--cv-border);
+}
+
+/* ===================================================================
+   Tela de autenticacao (login, setup inicial)
+   ================================================================ */
+
+.cv-auth-wrapper {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #f7f7fb 0%, #ecebf5 100%);
+}
+
+.cv-auth-card {
+  width: 100%;
+  max-width: 460px;
+  background-color: var(--cv-surface-card);
+  border: 1px solid var(--cv-border);
+  border-radius: 14px;
+  padding: 2.5rem 2rem;
+  box-shadow: 0 8px 32px rgba(108, 92, 231, 0.08),
+              0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.cv-auth-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: #2d2d3a;
+  text-align: center;
+}
+
+.cv-auth-subtitle {
+  color: var(--cv-text-muted);
+  text-align: center;
+  margin-bottom: 1.75rem;
+  font-size: 0.95rem;
+}
+
+/* Input de PIN: fonte grande, centralizado, espaco entre digitos */
+.cv-pin-input {
+  font-size: 1.5rem !important;
+  text-align: center;
+  letter-spacing: 0.5rem;
+  font-family: ui-monospace, "Courier New", monospace;
+}
+
+/* ===================================================================
+   Breadcrumb
+   ================================================================ */
+
+.breadcrumb {
+  background-color: transparent;
+  padding: 0.5rem 0;
+  margin-bottom: 1rem;
+  font-size: 0.95rem;
+}
+
+.breadcrumb-item.active {
+  font-weight: 500;
+}
+
+/* ===================================================================
+   Badges
+   ================================================================ */
+
+.badge {
+  font-weight: 500;
+  font-size: 0.78rem;
+  padding: 0.35em 0.6em;
+  border-radius: 6px;
+}
+
+.badge.bg-warning {
+  color: #5d4108 !important;
+}
+
+/* ===================================================================
+   Sidebar
+   ================================================================ */
+
+.bslib-sidebar-layout > .sidebar {
+  background-color: var(--cv-surface-card);
+  border-right: 1px solid var(--cv-border);
+}
+
+.nav-link {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 0.25rem;
+  color: #2d2d3a;
+  font-weight: 500;
+}
+
+.nav-link:hover {
+  background-color: var(--cv-surface);
+  color: var(--cv-primary);
+}
+
+.nav-link.active {
+  background-color: var(--cv-primary);
+  color: white !important;
+}
+
+/* Itens da sidebar marcados como "em breve" */
+.cv-nav-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.cv-nav-disabled::after {
+  content: "em breve";
+  font-size: 0.7rem;
+  margin-left: auto;
+  padding: 2px 6px;
+  background-color: var(--cv-border);
+  border-radius: 4px;
+  color: var(--cv-text-muted);
+}
+
+/* ===================================================================
+   Tabela de meios (catalogo)
+   ================================================================ */
+
+.cv-meio-row {
+  padding: 1rem;
+  border-bottom: 1px solid var(--cv-border);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: background-color 0.15s ease;
+}
+
+.cv-meio-row:hover {
+  background-color: var(--cv-surface);
+  cursor: pointer;
+}
+
+.cv-meio-codigo {
+  font-family: ui-monospace, "Courier New", monospace;
+  font-weight: 600;
+  font-size: 0.95rem;
+  background-color: var(--cv-surface);
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  min-width: 4.5rem;
+  text-align: center;
+}
+
+.cv-meio-nome {
+  flex: 1;
+  font-weight: 500;
+}
+
+.cv-meio-meta {
+  color: var(--cv-text-muted);
+  font-size: 0.85rem;
+}
+
+/* ===================================================================
+   Estado vazio (placeholder)
+   ================================================================ */
+
+.cv-empty-state {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: var(--cv-text-muted);
+}
+
+.cv-empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.4;
+}
+
+/* ===================================================================
+   Footer / rodape com info do operador logado
+   ================================================================ */
+
+.cv-user-strip {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--cv-border);
+  background-color: var(--cv-surface);
+  font-size: 0.9rem;
+  color: var(--cv-text-muted);
+}
+
+.cv-user-strip strong {
+  color: #2d2d3a;
+}

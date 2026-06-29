@@ -1,41 +1,36 @@
-#' The application User-Interface
+#' UI principal do aplicativo CultivaR
 #'
-#' @param request Internal parameter for `{shiny}`.
-#'     DO NOT REMOVE.
-#' @import shiny
+#' Renderiza apenas um container reativo: o conteudo e definido pelo
+#' app_server com base no estado de autenticacao.
+#'
+#' @param request URL request (golem default).
 #' @noRd
 app_ui <- function(request) {
-	tagList(
-		# Leave this function for adding external resources
-		golem_add_external_resources(),
-		# Your application UI logic
-		fluidPage(
-			golem::golem_welcome_page() # Remove this line to start building your UI
-		)
-	)
+  shiny::tagList(
+    # Recursos externos (CSS, JS, favicon)
+    golem_add_external_resources(),
+    
+    # Container raiz: alterna entre tela de auth e app principal
+    shiny::uiOutput("cv_root")
+  )
 }
 
-#' Add external Resources to the Application
+#' Recursos externos carregados em todas as paginas
 #'
-#' This function is internally used to add external
-#' resources inside the Shiny application.
+#' Inclui dependencias bslib (Bootstrap 5), CSS customizado do CultivaR,
+#' e tags meta padrao do golem.
 #'
-#' @import shiny
-#' @importFrom golem add_resource_path activate_js favicon bundle_resources
 #' @noRd
 golem_add_external_resources <- function() {
-	add_resource_path(
-		"www",
-		app_sys("app/www")
-	)
-
-	tags$head(
-		favicon(),
-		bundle_resources(
-			path = app_sys("app/www"),
-			app_title = "cultivaR"
-		)
-		# Add here other external resources
-		# for example, you can add shinyalert::useShinyalert()
-	)
+  shiny::addResourcePath("www", system.file("app/www", package = "cultivaR"))
+  
+  shiny::tags$head(
+    golem::favicon(),
+    golem::bundle_resources(
+      path = system.file("app/www", package = "cultivaR"),
+      app_title = "CultivaR"
+    ),
+    shiny::tags$link(rel = "stylesheet", type = "text/css",
+                     href = "www/cultivar.css")
+  )
 }
