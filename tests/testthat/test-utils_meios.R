@@ -510,3 +510,302 @@ test_that("restaurar_meio: nao-arquivado da erro", {
     "nao esta arquivado"
   )
 })
+# =====================================================================
+# Testes de criar_meio
+# =====================================================================
+
+.obter_cat_id <- function(con, nome = "transformacao_genetica") {
+  DBI::dbGetQuery(con,
+                  "SELECT id FROM categorias_meio WHERE nome = ? LIMIT 1;",
+                  params = list(nome))$id[1]
+}
+
+# ---------- Caminho feliz ----------
+
+test_that("criar_meio: admin cria meio minimo retorna id", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  cat_id <- .obter_cat_id(con)
+  
+  novo_id <- criar_meio(con,
+                        nome = "Meio Novo",
+                        codigo_curto = "MN1",
+                        categoria_id = cat_id,
+                        criado_por_id = id_admin)
+  expect_true(is.integer(novo_id))
+  
+  m <- DBI::dbGetQuery(con,
+                       "SELECT nome, codigo_curto, ph_alvo, flag_incerteza,
+            bloqueado_preparo, nota_incerteza, criado_por
+     FROM meios WHERE id = ?;",
+                       params = list(novo_id))
+  expect_equal(m$nome[1], "Meio Novo")
+  expect_equal(m$codigo_curto[1], "MN1")
+  expect_true(is.na(m$ph_alvo[1]))
+  expect_equal(m$flag_incerteza[1], 0L)
+  expect_equal(m$bloqueado_preparo[1], 0L)
+  expect_true(is.na(m$nota_incerteza[1]))
+  expect_equal(m$criado_por[1], id_admin)
+})
+
+test_that("criar_meio: supervisor cria meio completo", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  id_sup <- criar_operador(con, "Sup", "2222", "supervisor",
+                           criado_por_id = id_admin)
+  cat_id <- .obter_cat_id(con)
+  
+  novo_id <- criar_meio(con,
+                        nome = "  Meio Completo  ",
+                        codigo_curto = "MC1",
+                        categoria_id = cat_id,
+                        criado_por_id = id_sup,
+                        referencia = "Murashige & Skoog 1962",
+                        doi = "10.1111/j.1399-3054.1962.tb08052.x",
+                        ph_alvo = 5.8,
+                        observacoes = "uso geral",
+                        flag_incerteza = 1L,
+                        nota_incerteza = "fonte parcialmente verificada")
+  expect_true(is.integer(novo_id))
+  
+  m <- DBI::dbGetQuery(con,
+                       "SELECT nome, codigo_curto, referencia, doi, ph_alvo,
+            observacoes, flag_incerteza, nota_incerteza
+     FROM meios WHERE id = ?;",
+                       params = list(novo_id))
+  expect_equal(m$nome[1], "Meio Completo")  # trimado
+  expect_equal(m$codigo_curto[1], "MC1")
+  expect_equal(m$referencia[1], "Murashige & Skoog 1962")
+  expect_equal(m$ph_alvo[1], 5.8, tolerance = 1e-9)
+  expect_equal(m$flag_incerteza[1], 1L)
+  expect_equal(m$nota_incerteza[1], "fonte parcialmente verificada")
+})
+
+test_that("criar_meio: registra audit_log INSERT", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  cat_id <- .obter_cat_id(con)
+  
+  novo_id <- criar_meio(con,
+                        nome = "Meio Aud",
+                        codigo_curto = "MA1",
+                        categoria_id = cat_id,
+                        criado_por_id = id_admin)
+  
+  audit <- DBI::dbGetQuery(con,
+                           "SELECT acao, valores_depois FROM audit_log
+     WHERE entidade_tabela = 'meios' AND entidade_id = ?;",
+                           params = list(novo_id))
+  expect_equal(audit$acao[1], "INSERT")
+  expect_true(grepl("MA1", audit$valores_depois[1]))
+  expect_true(grepl("Meio Aud", audit$valores_depois[1]))
+})
+
+# ---------- Permissao ----------
+
+test_that("criar_meio: operador comum nao pode criar", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  id_op <- criar_operador(con, "Op", "2222", "operador",
+                          criado_por_id = id_admin)
+  cat_id <- .obter_cat_id(con)
+  
+  expect_error(
+    criar_meio(con,
+               nome = "Meio X",
+               codigo_curto = "MX1",
+               categoria_id = cat_id,
+               criado_por_id = id_op),
+    "Apenas supervisores e admins"
+  )
+})
+
+test_that("criar_meio: solicitante inexistente da erro", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  cat_id <- .obter_cat_id(con)
+  
+  expect_error(
+    criar_meio(con,
+               nome = "Meio X",
+               codigo_curto = "MX1",
+               categoria_id = cat_id,
+               criado_por_id = 99999L),
+    "Solicitante nao encontrado"
+  )
+})
+
+# ---------- Validacao de nome e codigo ----------
+
+test_that("criar_meio: nome vazio da erro", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  cat_id <- .obter_cat_id(con)
+  
+  expect_error(
+    criar_meio(con, nome = "   ", codigo_curto = "MX1",
+               categoria_id = cat_id, criado_por_id = id_admin),
+    "nao pode ser vazio"
+  )
+  expect_error(
+    criar_meio(con, nome = NA_character_, codigo_curto = "MX1",
+               categoria_id = cat_id, criado_por_id = id_admin),
+    "obrigatorio"
+  )
+})
+
+test_that("criar_meio: codigo_curto vazio da erro", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  cat_id <- .obter_cat_id(con)
+  
+  expect_error(
+    criar_meio(con, nome = "X", codigo_curto = "",
+               categoria_id = cat_id, criado_por_id = id_admin),
+    "obrigatorio|nao pode ser vazio"
+  )
+})
+
+test_that("criar_meio: codigo_curto com caractere invalido da erro", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  cat_id <- .obter_cat_id(con)
+  
+  expect_error(
+    criar_meio(con, nome = "X", codigo_curto = "MX 1",
+               categoria_id = cat_id, criado_por_id = id_admin),
+    "letras, numeros e underscore"
+  )
+  expect_error(
+    criar_meio(con, nome = "X", codigo_curto = "MX-1",
+               categoria_id = cat_id, criado_por_id = id_admin),
+    "letras, numeros e underscore"
+  )
+})
+
+test_that("criar_meio: codigo_curto duplicado em meio ativo da erro", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  cat_id <- .obter_cat_id(con)
+  
+  criar_meio(con, nome = "Primeiro", codigo_curto = "DUP",
+             categoria_id = cat_id, criado_por_id = id_admin)
+  expect_error(
+    criar_meio(con, nome = "Segundo", codigo_curto = "DUP",
+               categoria_id = cat_id, criado_por_id = id_admin),
+    "meio ativo"
+  )
+})
+
+test_that("criar_meio: codigo_curto duplicado em meio arquivado da erro com msg diferente", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  cat_id <- .obter_cat_id(con)
+  
+  id1 <- criar_meio(con, nome = "Primeiro", codigo_curto = "ARQ",
+                    categoria_id = cat_id, criado_por_id = id_admin)
+  # Arquiva direto via SQL (nao usar arquivar_meio que pode ter
+  # logica extra que nao queremos no teste)
+  DBI::dbExecute(con,
+                 "UPDATE meios SET deleted_at = ? WHERE id = ?;",
+                 params = list(.now_utc(), id1))
+  
+  expect_error(
+    criar_meio(con, nome = "Segundo", codigo_curto = "ARQ",
+               categoria_id = cat_id, criado_por_id = id_admin),
+    "arquivado"
+  )
+})
+
+# ---------- Validacao de FKs ----------
+
+test_that("criar_meio: categoria inexistente da erro", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  
+  expect_error(
+    criar_meio(con, nome = "X", codigo_curto = "MX1",
+               categoria_id = 99999L, criado_por_id = id_admin),
+    "Categoria nao encontrada"
+  )
+})
+
+test_that("criar_meio: pop_id inexistente da erro", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  cat_id <- .obter_cat_id(con)
+  
+  expect_error(
+    criar_meio(con, nome = "X", codigo_curto = "MX1",
+               categoria_id = cat_id, criado_por_id = id_admin,
+               pop_id = 99999L),
+    "POP nao encontrado"
+  )
+})
+
+# ---------- Validacao de campos opcionais ----------
+
+test_that("criar_meio: ph_alvo fora do range da erro", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  cat_id <- .obter_cat_id(con)
+  
+  expect_error(
+    criar_meio(con, nome = "X", codigo_curto = "MX1",
+               categoria_id = cat_id, criado_por_id = id_admin,
+               ph_alvo = 15),
+    "entre 0 e 14"
+  )
+  expect_error(
+    criar_meio(con, nome = "X", codigo_curto = "MX2",
+               categoria_id = cat_id, criado_por_id = id_admin,
+               ph_alvo = -1),
+    "entre 0 e 14"
+  )
+})
+
+test_that("criar_meio: flag_incerteza=1 sem nota da erro", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  cat_id <- .obter_cat_id(con)
+  
+  expect_error(
+    criar_meio(con, nome = "X", codigo_curto = "MX1",
+               categoria_id = cat_id, criado_por_id = id_admin,
+               flag_incerteza = 1L),
+    "Nota de incerteza"
+  )
+  expect_error(
+    criar_meio(con, nome = "X", codigo_curto = "MX2",
+               categoria_id = cat_id, criado_por_id = id_admin,
+               flag_incerteza = 1L, nota_incerteza = "   "),
+    "Nota de incerteza"
+  )
+})
+
+test_that("criar_meio: bloqueado_preparo=1 sem nota da erro", {
+  con <- .setup_banco_meios()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  cat_id <- .obter_cat_id(con)
+  
+  expect_error(
+    criar_meio(con, nome = "X", codigo_curto = "MX1",
+               categoria_id = cat_id, criado_por_id = id_admin,
+               bloqueado_preparo = 1L),
+    "Nota de incerteza"
+  )
+})

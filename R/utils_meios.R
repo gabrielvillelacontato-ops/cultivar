@@ -451,3 +451,245 @@ restaurar_meio <- function(con, meio_id, solicitante_id,
   })
   invisible(NULL)
 }
+# ---------------------------------------------------------------------
+# Criar meio
+# ---------------------------------------------------------------------
+
+#' Cria um novo meio de cultura
+#'
+#' Apenas supervisores e admins podem criar meios. Operadores comuns
+#' recebem erro de permissao.
+#'
+#' Validacoes:
+#'   - Solicitante existe, esta ativo e tem papel supervisor/admin
+#'   - nome: nao vazio (apos trim), ate 200 chars
+#'   - codigo_curto: nao vazio, alfanumerico + underscore, ate 20 chars,
+#'     unico por tenant (mesmo entre meios arquivados, devido a UNIQUE constraint)
+#'   - categoria_id: existe no mesmo tenant
+#'   - pop_id (opcional): se fornecido, existe no mesmo tenant
+#'   - ph_alvo (opcional): se fornecido, entre 0 e 14
+#'   - flag_incerteza: 0 ou 1; se 1 entao nota_incerteza obrigatoria
+#'   - bloqueado_preparo: 0 ou 1; se 1 entao nota_incerteza obrigatoria
+#'
+#' INSERT em meios + INSERT em audit_log na mesma transacao.
+#'
+#' @return Inteiro: id do novo meio.
+#' @noRd
+criar_meio <- function(con, nome, codigo_curto, categoria_id,
+                       criado_por_id,
+                       pop_id = NA_integer_,
+                       referencia = NA_character_,
+                       doi = NA_character_,
+                       ph_alvo = NA_real_,
+                       observacoes = NA_character_,
+                       flag_incerteza = 0L,
+                       nota_incerteza = NA_character_,
+                       bloqueado_preparo = 0L,
+                       tenant_id = TENANT_DEFAULT_ID) {
+  
+  # ---- Validacao: solicitante ----
+  criado_por_id <- as.integer(criado_por_id)
+  solic <- DBI::dbGetQuery(
+    con,
+    "SELECT id, papel, ativo, deleted_at FROM operadores
+     WHERE id = ? AND tenant_id = ?;",
+    params = list(criado_por_id, tenant_id)
+  )
+  if (nrow(solic) == 0L) {
+    stop("Solicitante nao encontrado.", call. = FALSE)
+  }
+  if (solic$ativo[1] != 1L || !is.na(solic$deleted_at[1])) {
+    stop("Solicitante inativo ou arquivado.", call. = FALSE)
+  }
+  if (!solic$papel[1] %in% c("supervisor", "admin")) {
+    stop("Apenas supervisores e admins podem criar meios. ",
+         "Solicite ao supervisor responsavel.", call. = FALSE)
+  }
+  
+  # ---- Validacao: nome ----
+  if (is.null(nome) || length(nome) != 1L || is.na(nome) ||
+      !is.character(nome)) {
+    stop("Nome do meio e obrigatorio.", call. = FALSE)
+  }
+  nome <- trimws(nome)
+  if (!nzchar(nome)) {
+    stop("Nome do meio nao pode ser vazio.", call. = FALSE)
+  }
+  if (nchar(nome) > 200L) {
+    stop("Nome do meio nao pode ter mais de 200 caracteres.", call. = FALSE)
+  }
+  
+  # ---- Validacao: codigo_curto ----
+  if (is.null(codigo_curto) || length(codigo_curto) != 1L ||
+      is.na(codigo_curto) || !is.character(codigo_curto)) {
+    stop("Codigo curto e obrigatorio.", call. = FALSE)
+  }
+  codigo_curto <- trimws(codigo_curto)
+  if (!nzchar(codigo_curto)) {
+    stop("Codigo curto nao pode ser vazio.", call. = FALSE)
+  }
+  if (nchar(codigo_curto) > 20L) {
+    stop("Codigo curto nao pode ter mais de 20 caracteres.", call. = FALSE)
+  }
+  if (!grepl("^[A-Za-z0-9_]+$", codigo_curto)) {
+    stop("Codigo curto so pode ter letras, numeros e underscore. ",
+         "Valor recebido: '", codigo_curto, "'.", call. = FALSE)
+  }
+  
+  # Verifica unicidade (constraint UNIQUE pega arquivados tambem)
+  existente <- DBI::dbGetQuery(
+    con,
+    "SELECT id, deleted_at FROM meios
+     WHERE tenant_id = ? AND codigo_curto = ?;",
+    params = list(tenant_id, codigo_curto)
+  )
+  if (nrow(existente) > 0L) {
+    if (is.na(existente$deleted_at[1])) {
+      stop("Ja existe um meio ativo com codigo '", codigo_curto, "'.",
+           call. = FALSE)
+    } else {
+      stop("Codigo '", codigo_curto,
+           "' pertence a um meio arquivado. Restaure-o ou escolha outro codigo.",
+           call. = FALSE)
+    }
+  }
+  
+  # ---- Validacao: categoria ----
+  categoria_id <- as.integer(categoria_id)
+  cat_row <- DBI::dbGetQuery(
+    con,
+    "SELECT id FROM categorias_meio WHERE id = ? AND tenant_id = ?;",
+    params = list(categoria_id, tenant_id)
+  )
+  if (nrow(cat_row) == 0L) {
+    stop("Categoria nao encontrada (id=", categoria_id, ").", call. = FALSE)
+  }
+  
+  # ---- Validacao: pop_id (opcional) ----
+  if (!is.na(pop_id)) {
+    pop_id <- as.integer(pop_id)
+    pop_row <- DBI::dbGetQuery(
+      con,
+      "SELECT id FROM pops WHERE id = ? AND tenant_id = ?;",
+      params = list(pop_id, tenant_id)
+    )
+    if (nrow(pop_row) == 0L) {
+      stop("POP nao encontrado (id=", pop_id, ").", call. = FALSE)
+    }
+  } else {
+    pop_id <- NA_integer_
+  }
+  
+  # ---- Validacao: ph_alvo (opcional) ----
+  if (!is.na(ph_alvo)) {
+    if (!is.numeric(ph_alvo) || length(ph_alvo) != 1L ||
+        ph_alvo < 0 || ph_alvo > 14) {
+      stop("ph_alvo deve estar entre 0 e 14 (ou NA).", call. = FALSE)
+    }
+    ph_alvo <- as.numeric(ph_alvo)
+  } else {
+    ph_alvo <- NA_real_
+  }
+  
+  # ---- Validacao: flag_incerteza ----
+  if (!is.numeric(flag_incerteza) && !is.integer(flag_incerteza)) {
+    stop("flag_incerteza deve ser 0 ou 1.", call. = FALSE)
+  }
+  flag_incerteza <- as.integer(flag_incerteza)
+  if (!flag_incerteza %in% c(0L, 1L)) {
+    stop("flag_incerteza deve ser 0 ou 1.", call. = FALSE)
+  }
+  
+  # ---- Validacao: bloqueado_preparo ----
+  if (!is.numeric(bloqueado_preparo) && !is.integer(bloqueado_preparo)) {
+    stop("bloqueado_preparo deve ser 0 ou 1.", call. = FALSE)
+  }
+  bloqueado_preparo <- as.integer(bloqueado_preparo)
+  if (!bloqueado_preparo %in% c(0L, 1L)) {
+    stop("bloqueado_preparo deve ser 0 ou 1.", call. = FALSE)
+  }
+  
+  # ---- Validacao: nota_incerteza obrigatoria se flag ou bloqueio ativo ----
+  if (flag_incerteza == 1L || bloqueado_preparo == 1L) {
+    if (is.na(nota_incerteza) || !is.character(nota_incerteza) ||
+        !nzchar(trimws(nota_incerteza))) {
+      stop("Nota de incerteza e obrigatoria quando ",
+           "flag_incerteza ou bloqueado_preparo esta ativo.", call. = FALSE)
+    }
+    nota_incerteza <- trimws(nota_incerteza)
+  } else {
+    nota_incerteza <- if (is.na(nota_incerteza)) NA_character_
+    else trimws(nota_incerteza)
+    if (!is.na(nota_incerteza) && !nzchar(nota_incerteza)) {
+      nota_incerteza <- NA_character_
+    }
+  }
+  
+  # ---- Normalizacao de campos opcionais string ----
+  normalizar_opcional <- function(x) {
+    if (is.null(x) || length(x) != 1L || is.na(x) || !is.character(x)) {
+      return(NA_character_)
+    }
+    x <- trimws(x)
+    if (!nzchar(x)) NA_character_ else x
+  }
+  referencia <- normalizar_opcional(referencia)
+  doi <- normalizar_opcional(doi)
+  observacoes <- normalizar_opcional(observacoes)
+  
+  # ---- Execucao em transacao ----
+  agora <- .now_utc()
+  
+  DBI::dbBegin(con)
+  tryCatch({
+    DBI::dbExecute(
+      con,
+      "INSERT INTO meios
+         (tenant_id, categoria_id, pop_id, nome, codigo_curto,
+          referencia, doi, ph_alvo, observacoes,
+          flag_incerteza, nota_incerteza,
+          criado_por, criado_em, atualizado_em,
+          bloqueado_preparo)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);",
+      params = list(
+        tenant_id, categoria_id, pop_id, nome, codigo_curto,
+        referencia, doi, ph_alvo, observacoes,
+        flag_incerteza, nota_incerteza,
+        criado_por_id, agora, agora,
+        bloqueado_preparo
+      )
+    )
+    
+    novo_id <- DBI::dbGetQuery(
+      con,
+      "SELECT id FROM meios
+       WHERE tenant_id = ? AND codigo_curto = ?;",
+      params = list(tenant_id, codigo_curto)
+    )$id[1]
+    
+    DBI::dbExecute(
+      con,
+      "INSERT INTO audit_log
+         (tenant_id, operador_id, entidade_tabela, entidade_id, acao,
+          valores_depois)
+       VALUES (?, ?, 'meios', ?, 'INSERT', ?);",
+      params = list(
+        tenant_id, criado_por_id, as.integer(novo_id),
+        sprintf(
+          '{"codigo":"%s","nome":"%s","categoria_id":%d,"flag_incerteza":%d,"bloqueado_preparo":%d}',
+          codigo_curto,
+          gsub('"', '\\\\"', nome),
+          categoria_id,
+          flag_incerteza,
+          bloqueado_preparo
+        )
+      )
+    )
+    
+    DBI::dbCommit(con)
+    as.integer(novo_id)
+  }, error = function(e) {
+    DBI::dbRollback(con)
+    stop("Falha ao criar meio: ", conditionMessage(e), call. = FALSE)
+  })
+}
