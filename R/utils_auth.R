@@ -594,3 +594,39 @@ reativar_operador <- function(con, operador_id, solicitante_id,
   })
   invisible(NULL)
 }
+# ---------------------------------------------------------------------
+# Listagem administrativa de operadores
+# ---------------------------------------------------------------------
+
+#' Lista operadores do tenant para uso administrativo
+#'
+#' Retorna colunas seguras para exibicao em UI (nao inclui pin_hash,
+#' pin_salt nem tentativas_falhas).
+#'
+#' @param con Conexao DBI.
+#' @param incluir_arquivados Se TRUE, inclui operadores com deleted_at
+#'   preenchido. Default FALSE.
+#' @param tenant_id Tenant. Default TENANT_DEFAULT_ID.
+#'
+#' @return data.frame com colunas: id, nome, email, papel, ativo,
+#'   bloqueado_ate, deleted_at, criado_em. Ordenado por nome asc.
+#'
+#' @noRd
+listar_operadores <- function(con, incluir_arquivados = FALSE,
+                              tenant_id = TENANT_DEFAULT_ID) {
+  where_arq <- if (isTRUE(incluir_arquivados)) {
+    ""
+  } else {
+    " AND deleted_at IS NULL"
+  }
+  
+  sql <- paste0(
+    "SELECT id, nome, email, papel, ativo,
+            bloqueado_ate, deleted_at, criado_em
+     FROM operadores
+     WHERE tenant_id = ?", where_arq,
+    " ORDER BY nome ASC;"
+  )
+  
+  DBI::dbGetQuery(con, sql, params = list(tenant_id))
+}

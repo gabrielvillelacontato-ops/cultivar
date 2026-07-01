@@ -342,3 +342,130 @@ test_that("desativar_operador: nao-admin nao pode desativar", {
     "Apenas admins"
   )
 })
+# =====================================================================
+# Testes de listar_operadores
+# =====================================================================
+
+test_that("listar_operadores: sem operadores retorna data.frame vazio", {
+  con <- .setup_banco_auth()
+  on.exit(DBI::dbDisconnect(con))
+  
+  res <- listar_operadores(con)
+  expect_s3_class(res, "data.frame")
+  expect_equal(nrow(res), 0L)
+  # Colunas ainda devem existir mesmo em zero linhas
+  expect_setequal(
+    names(res),
+    c("id", "nome", "email", "papel", "ativo",
+      "bloqueado_ate", "deleted_at", "criado_em")
+  )
+})
+
+test_that("listar_operadores: retorna todos os operadores ativos", {
+  con <- .setup_banco_auth()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  criar_operador(con, "Bob", "2222", "operador",
+                 criado_por_id = id_admin)
+  criar_operador(con, "Carla", "3333", "supervisor",
+                 criado_por_id = id_admin)
+  
+  res <- listar_operadores(con)
+  expect_equal(nrow(res), 3L)
+  expect_setequal(res$nome, c("Admin", "Bob", "Carla"))
+})
+
+test_that("listar_operadores: ordena por nome ascendente", {
+  con <- .setup_banco_auth()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Zulmira", "1111", "admin")
+  criar_operador(con, "Alice", "2222", "operador",
+                 criado_por_id = id_admin)
+  criar_operador(con, "Marcos", "3333", "operador",
+                 criado_por_id = id_admin)
+  
+  res <- listar_operadores(con)
+  expect_equal(res$nome, c("Alice", "Marcos", "Zulmira"))
+})
+
+test_that("listar_operadores: default nao inclui arquivados", {
+  con <- .setup_banco_auth()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  id_bob <- criar_operador(con, "Bob", "2222", "operador",
+                           criado_por_id = id_admin)
+  
+  # Arquiva Bob via UPDATE direto (evita depender de desativar_operador)
+  DBI::dbExecute(con,
+                 "UPDATE operadores SET deleted_at = ? WHERE id = ?;",
+                 params = list(.now_utc(), id_bob))
+  
+  res <- listar_operadores(con)
+  expect_equal(nrow(res), 1L)
+  expect_equal(res$nome[1], "Admin")
+})
+
+test_that("listar_operadores: incluir_arquivados = TRUE retorna todos", {
+  con <- .setup_banco_auth()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  id_bob <- criar_operador(con, "Bob", "2222", "operador",
+                           criado_por_id = id_admin)
+  
+  DBI::dbExecute(con,
+                 "UPDATE operadores SET deleted_at = ? WHERE id = ?;",
+                 params = list(.now_utc(), id_bob))
+  
+  res <- listar_operadores(con, incluir_arquivados = TRUE)
+  expect_equal(nrow(res), 2L)
+  # Bob deve estar com deleted_at preenchido
+  bob_row <- res[res$nome == "Bob", , drop = FALSE]
+  expect_false(is.na(bob_row$deleted_at[1]))
+})
+
+test_that("listar_operadores: nao expoe pin_hash nem pin_salt", {
+  con <- .setup_banco_auth()
+  on.exit(DBI::dbDisconnect(con))
+  criar_operador(con, "Admin", "1111", "admin")
+  
+  res <- listar_operadores(con)
+  expect_false("pin_hash" %in% names(res))
+  expect_false("pin_salt" %in% names(res))
+  expect_false("tentativas_falhas" %in% names(res))
+})
+
+test_that("listar_operadores: nao mistura tenants", {
+  con <- .setup_banco_auth()
+  on.exit(DBI::dbDisconnect(con))
+  
+  # Cria tenant secundario
+  DBI::dbExecute(con,
+                 "INSERT INTO tenants (id, nome) VALUES (2, 'Tenant Secundario');")
+  
+  criar_operador(con, "Admin1", "1111", "admin", tenant_id = 1L)
+  criar_operador(con, "Admin2", "2222", "admin", tenant_id = 2L)
+  
+  res_t1 <- listar_operadores(con, tenant_id = 1L)
+  res_t2 <- listar_operadores(con, tenant_id = 2L)
+  
+  expect_equal(nrow(res_t1), 1L)
+  expect_equal(nrow(res_t2), 1L)
+  expect_equal(res_t1$nome[1], "Admin1")
+  expect_equal(res_t2$nome[1], "Admin2")
+})
+
+test_that("listar_operadores: retorna papeis corretos", {
+  con <- .setup_banco_auth()
+  on.exit(DBI::dbDisconnect(con))
+  id_admin <- criar_operador(con, "Admin", "1111", "admin")
+  criar_operador(con, "Sup", "2222", "supervisor",
+                 criado_por_id = id_admin)
+  criar_operador(con, "Op", "3333", "operador",
+                 criado_por_id = id_admin)
+  
+  res <- listar_operadores(con)
+  papeis <- setNames(res$papel, res$nome)
+  expect_equal(papeis[["Admin"]], "admin")
+  expect_equal(papeis[["Sup"]], "supervisor")
+  expect_equal(papeis[["Op"]], "operador")
+})
