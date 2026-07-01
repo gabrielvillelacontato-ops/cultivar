@@ -35,6 +35,10 @@ app_server <- function(input, output, session) {
   # Modulo de meios (so ativo quando logado)
   # -------------------------------------------------------------------
   mod_meios_server("meios", con = con, sessao_auth = auth$operador)
+  # -------------------------------------------------------------------
+  # Modulo de preparo (wizard, so ativo quando logado)
+  # -------------------------------------------------------------------
+  mod_preparo_server("preparo", con = con, sessao_auth = auth$operador)
   
   # -------------------------------------------------------------------
   # Timeout de inatividade (30 min)
@@ -151,14 +155,13 @@ app_server <- function(input, output, session) {
       )
     ),
     
-    # Painel: Preparos (futuro)
+    # Painel: Preparos
     bslib::nav_panel(
       title = "Preparos",
       icon = shiny::icon("vial"),
-      .placeholder_em_breve(
-        "Preparos",
-        "Wizard passo a passo para registrar preparo de lotes. ",
-        "Disponivel no Dia 5."
+      htmltools::tags$div(
+        ui_breadcrumb(c("CultivaR", "Preparos")),
+        mod_preparo_ui("preparo")
       )
     ),
     
