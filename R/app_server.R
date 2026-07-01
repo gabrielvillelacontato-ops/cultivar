@@ -39,6 +39,10 @@ app_server <- function(input, output, session) {
   # Modulo de preparo (wizard, so ativo quando logado)
   # -------------------------------------------------------------------
   mod_preparo_server("preparo", con = con, sessao_auth = auth$operador)
+  # -------------------------------------------------------------------
+  # Modulo de operadores (admin, so ativo quando logado)
+  # -------------------------------------------------------------------
+  mod_operadores_server("operadores", con = con, sessao_auth = auth$operador)
   
   # -------------------------------------------------------------------
   # Timeout de inatividade (30 min)
@@ -194,10 +198,9 @@ app_server <- function(input, output, session) {
       bslib::nav_panel(
         title = "Operadores",
         icon = shiny::icon("users"),
-        .placeholder_em_breve(
-          "Operadores",
-          "Cadastro, edicao de papeis e desativacao de operadores. ",
-          "Disponivel no Dia 6."
+        htmltools::tags$div(
+          ui_breadcrumb(c("CultivaR", "Operadores")),
+          mod_operadores_ui("operadores")
         )
       )
     } else NULL
