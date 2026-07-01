@@ -180,3 +180,47 @@ ui_auth_card <- function(titulo, ...) {
 ui_vspace <- function(rem = 1) {
   htmltools::tags$div(style = sprintf("height: %srem;", rem))
 }
+# ---------------------------------------------------------------------
+# Helpers globais reutilizados pelos modulos
+# ---------------------------------------------------------------------
+
+#' Operador null-coalesce
+#'
+#' Retorna `b` se `a` for NULL; caso contrario retorna `a`.
+#'
+#' @noRd
+`%||%` <- function(a, b) if (is.null(a)) b else a
+
+#' Formatacao numerica no padrao BR
+#'
+#' Separador de milhar ponto, decimal virgula. Retorna "-" para NA/NULL.
+#'
+#' @param x Numeric escalar.
+#' @param decimais Numero de casas decimais (default 2).
+#' @return String.
+#' @noRd
+ui_fmt_br <- function(x, decimais = 2L) {
+  if (is.null(x) || length(x) != 1L || is.na(x)) return("-")
+  formatC(as.numeric(x), format = "f", digits = decimais,
+          big.mark = ".", decimal.mark = ",")
+}
+
+#' Formatacao de concentracao em mg/L com casas decimais adaptativas
+#'
+#' Regra: >=1000 sem casas, 100-999 uma casa, 0.1-99 duas casas,
+#' <0.1 tres casas.
+#'
+#' TODO v0.2: retornar valor + unidade dinamica (g/L, mg/L, ug/L).
+#'
+#' @param x Numeric escalar em mg/L.
+#' @return String.
+#' @noRd
+ui_fmt_mg_l <- function(x) {
+  if (is.null(x) || length(x) != 1L || is.na(x)) return("-")
+  x <- as.numeric(x)
+  if (x >= 1000)      ui_fmt_br(x, 0L)
+  else if (x >= 100)  ui_fmt_br(x, 1L)
+  else if (x >= 1)    ui_fmt_br(x, 2L)
+  else if (x >= 0.1)  ui_fmt_br(x, 2L)
+  else                ui_fmt_br(x, 3L)
+}

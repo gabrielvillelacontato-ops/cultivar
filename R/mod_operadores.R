@@ -19,9 +19,6 @@
 #'
 #' @noRd
 
-# Pipe operator helper
-`%||%` <- function(a, b) if (is.null(a)) b else a
-
 # ---------------------------------------------------------------------
 # Validadores puros
 # ---------------------------------------------------------------------
@@ -51,7 +48,7 @@
 #' @noRd
 .err_op_pin_conf <- function(pin, pin_conf) {
   if (is.null(pin_conf) || !nzchar(as.character(pin_conf %||% ""))) {
-    return(NULL)  # so cobra confirmacao quando algo digitado
+    return(NULL)
   }
   if (!identical(as.character(pin %||% ""), as.character(pin_conf))) {
     return("Os PINs nao conferem.")
@@ -61,7 +58,6 @@
 
 #' @noRd
 .err_op_email <- function(email) {
-  # Email opcional. Se preenchido, precisa parecer email.
   if (is.null(email) || is.na(email) ||
       !nzchar(trimws(as.character(email)))) {
     return(NULL)
@@ -169,12 +165,10 @@ mod_operadores_server <- function(id, con, sessao_auth) {
       )
       if (is.null(df) || nrow(df) == 0L) return(df)
       
-      # Filtro por status: se nao mostrar inativos, so ativo = 1
       if (!incluir_arq) {
         df <- df[df$ativo == 1L, , drop = FALSE]
       }
       
-      # Filtro por termo (nome)
       if (nzchar(trimws(termo))) {
         pat <- tolower(trimws(termo))
         df <- df[grepl(pat, tolower(df$nome), fixed = TRUE), ,
@@ -268,7 +262,6 @@ mod_operadores_server <- function(id, con, sessao_auth) {
     shiny::observeEvent(input$btn_desativar, {
       if (!isTRUE(e_admin()) || is.null(selected_id())) return()
       
-      # Proibe auto-desativacao (UI, redundante com bom senso)
       if (identical(selected_id(), op_atual_id())) {
         mensagem_painel(list(
           tipo = "warning",
@@ -330,7 +323,6 @@ mod_operadores_server <- function(id, con, sessao_auth) {
       
       novo_papel <- input$papel_edit
       
-      # Proibe auto-rebaixamento
       if (identical(selected_id(), op_atual_id()) &&
           !identical(novo_papel, "admin")) {
         mensagem_painel(list(
@@ -444,7 +436,6 @@ mod_operadores_server <- function(id, con, sessao_auth) {
       state <- panel_state()
       msg <- mensagem_painel()
       
-      # Sem admin -> so mensagem
       if (!isTRUE(e_admin())) {
         return(shiny::div(
           class = "alert alert-warning",
@@ -523,10 +514,8 @@ mod_operadores_server <- function(id, con, sessao_auth) {
     } else NULL
   )
   
-  # Botoes contextuais
   botoes <- shiny::tagList()
   
-  # Editar sempre permitido (mas server bloqueia auto-rebaixamento)
   botoes <- shiny::tagList(
     botoes,
     shiny::actionButton(ns("btn_editar"), "Editar papel",

@@ -16,49 +16,11 @@
 #'   - Na criacao, todos os campos sao aceitos (criar_meio aceita tudo)
 #'
 #' Formatacao BR: separador decimal virgula, milhar ponto.
+#' Helpers %||%, ui_fmt_br e ui_fmt_mg_l vem de R/utils_ui.R.
 #' Formatacao inteligente por escala (g/L, mg/L, ug/L) ficou como
 #' TODO para v0.2 - ver dev/notas_roadmap.md.
 #'
 #' @noRd
-
-# Pipe operator helper
-`%||%` <- function(a, b) if (is.null(a)) b else a
-
-# ---------------------------------------------------------------------
-# Formatacao numerica BR
-# ---------------------------------------------------------------------
-
-#' @noRd
-.fmt_br <- function(x, decimais = 2L) {
-  if (is.null(x) || length(x) != 1L || is.na(x)) return("-")
-  formatC(as.numeric(x),
-          format = "f",
-          digits = decimais,
-          big.mark = ".",
-          decimal.mark = ",")
-}
-
-#' Formatacao inteligente da concentracao em mg/L
-#'
-#' Regra atual (v0.1 - unidade unica):
-#'   >= 1000: sem casas decimais (ex: "20.000")
-#'   >= 100:  1 casa decimal    (ex: "150,0")
-#'   >= 1:    2 casas decimais  (ex: "5,75")
-#'   >= 0.1:  2 casas decimais  (ex: "0,25")
-#'   < 0.1:   3 casas decimais  (ex: "0,020")
-#'
-#' TODO v0.2: retornar valor + unidade dinamica (g/L, mg/L, ug/L).
-#'
-#' @noRd
-.formatar_mg_l <- function(x) {
-  if (is.null(x) || length(x) != 1L || is.na(x)) return("-")
-  x <- as.numeric(x)
-  if (x >= 1000)      .fmt_br(x, 0L)
-  else if (x >= 100)  .fmt_br(x, 1L)
-  else if (x >= 1)    .fmt_br(x, 2L)
-  else if (x >= 0.1)  .fmt_br(x, 2L)
-  else                .fmt_br(x, 3L)
-}
 
 # ---------------------------------------------------------------------
 # Validadores puros (retornam NULL se OK, string se erro)
@@ -182,7 +144,7 @@ mod_meios_server <- function(id, con, sessao_auth) {
     selected_id <- shiny::reactiveVal(NULL)
     panel_state <- shiny::reactiveVal("vazio")
     reload_trigger <- shiny::reactiveVal(0L)
-    mensagem_painel <- shiny::reactiveVal(NULL)  # so para success/erro do backend
+    mensagem_painel <- shiny::reactiveVal(NULL)
     
     # ---- Permissoes ----
     papel_atual <- shiny::reactive({
@@ -617,7 +579,7 @@ mod_meios_server <- function(id, con, sessao_auth) {
         shiny::tags$td(comp$nome[i]),
         shiny::tags$td(
           style = "text-align: right; font-variant-numeric: tabular-nums;",
-          .formatar_mg_l(comp$concentracao_mg_l[i])
+          ui_fmt_mg_l(comp$concentracao_mg_l[i])
         )
       )
     })
@@ -650,7 +612,7 @@ mod_meios_server <- function(id, con, sessao_auth) {
       shiny::tags$dd(m$categoria_nome[1]),
       if (!is.na(m$ph_alvo[1])) shiny::tagList(
         shiny::tags$dt("pH alvo"),
-        shiny::tags$dd(.fmt_br(m$ph_alvo[1], 2L))
+        shiny::tags$dd(ui_fmt_br(m$ph_alvo[1], 2L))
       ),
       if (!is.na(m$nota_incerteza[1])) shiny::tagList(
         shiny::tags$dt("Nota de incerteza/bloqueio"),

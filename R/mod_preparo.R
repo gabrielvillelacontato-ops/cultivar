@@ -10,36 +10,13 @@
 #' Descarte disponivel em pesar/finalizar (modal com motivo obrigatorio).
 #' Rascunho persistente: sair e voltar retoma no estado correto (pesar).
 #'
+#' Helpers %||%, ui_fmt_br e ui_fmt_mg_l vem de R/utils_ui.R.
+#'
 #' IMPORTANTE: a tolerancia de pesagem (.PREP_TOLERANCIA_PCT) deve
 #' permanecer sincronizada com a constante .TOLERANCIA_PESAGEM_PCT em
 #' R/utils_preparo.R. Se uma mudar, a outra tambem tem que mudar.
 #'
 #' @noRd
-
-# Pipe operator
-`%||%` <- function(a, b) if (is.null(a)) b else a
-
-# ---------------------------------------------------------------------
-# Formatacao BR (mesma logica do mod_meios)
-# ---------------------------------------------------------------------
-
-#' @noRd
-.prep_fmt_br <- function(x, decimais = 2L) {
-  if (is.null(x) || length(x) != 1L || is.na(x)) return("-")
-  formatC(as.numeric(x), format = "f", digits = decimais,
-          big.mark = ".", decimal.mark = ",")
-}
-
-#' @noRd
-.prep_fmt_mg <- function(x) {
-  if (is.null(x) || length(x) != 1L || is.na(x)) return("-")
-  x <- as.numeric(x)
-  if (x >= 1000)      .prep_fmt_br(x, 0L)
-  else if (x >= 100)  .prep_fmt_br(x, 1L)
-  else if (x >= 1)    .prep_fmt_br(x, 2L)
-  else if (x >= 0.1)  .prep_fmt_br(x, 2L)
-  else                .prep_fmt_br(x, 3L)
-}
 
 # ---------------------------------------------------------------------
 # Classificacao da pesagem
@@ -298,7 +275,7 @@ mod_preparo_ui <- function(id) {
           ),
           shiny::div(
             style = "color: #666; font-size: 13px; margin-top: 2px;",
-            "Alvo: ", .prep_fmt_mg(c_$massa_teorica_mg[1]), " mg"
+            "Alvo: ", ui_fmt_mg_l(c_$massa_teorica_mg[1]), " mg"
           )
         ),
         shiny::column(
@@ -320,7 +297,7 @@ mod_preparo_ui <- function(id) {
               shiny::span(
                 style = "font-size: 11px; color: #888;",
                 "desvio: ",
-                .prep_fmt_br(
+                ui_fmt_br(
                   abs(c_$massa_pesada_mg[1] - c_$massa_teorica_mg[1]) /
                     c_$massa_teorica_mg[1] * 100, 1L),
                 "%"
@@ -344,7 +321,7 @@ mod_preparo_ui <- function(id) {
       style = "margin-top: 16px; padding: 12px; background: #f0f0ff; border-radius: 4px; font-size: 13px;",
       shiny::tags$strong("Lembrete: "),
       "pH alvo deste meio e ",
-      .prep_fmt_br(preparo$ph_alvo[1], 2L),
+      ui_fmt_br(preparo$ph_alvo[1], 2L),
       ". Voce vai ajustar isso no proximo passo."
     )
   } else NULL
@@ -401,7 +378,7 @@ mod_preparo_ui <- function(id) {
   ph_info <- if (!is.na(preparo$ph_alvo[1])) {
     shiny::div(
       style = "color: #666; font-size: 13px; margin-top: 4px;",
-      "pH alvo: ", .prep_fmt_br(preparo$ph_alvo[1], 2L)
+      "pH alvo: ", ui_fmt_br(preparo$ph_alvo[1], 2L)
     )
   } else {
     shiny::div(
