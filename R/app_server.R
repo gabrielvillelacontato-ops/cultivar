@@ -31,6 +31,10 @@ app_server <- function(input, output, session) {
   # Modulo de autenticacao
   # -------------------------------------------------------------------
   auth <- mod_auth_server("auth", con = con)
+  # -------------------------------------------------------------------
+  # Modulo de meios (so ativo quando logado)
+  # -------------------------------------------------------------------
+  mod_meios_server("meios", con = con, sessao_auth = auth$operador)
   
   # -------------------------------------------------------------------
   # Timeout de inatividade (30 min)
@@ -141,10 +145,9 @@ app_server <- function(input, output, session) {
     bslib::nav_panel(
       title = "Catalogo de Meios",
       icon = shiny::icon("flask"),
-      .placeholder_em_breve(
-        "Catalogo de Meios",
-        "Listagem, busca e edicao de meios de cultura. ",
-        "Sera entregue na proxima etapa do desenvolvimento."
+      htmltools::tags$div(
+        ui_breadcrumb(c("CultivaR", "Catalogo de Meios")),
+        mod_meios_ui("meios")
       )
     ),
     
