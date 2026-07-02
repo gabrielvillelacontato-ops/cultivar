@@ -43,6 +43,10 @@ app_server <- function(input, output, session) {
   # Modulo de operadores (admin, so ativo quando logado)
   # -------------------------------------------------------------------
   mod_operadores_server("operadores", con = con, sessao_auth = auth$operador)
+  # -------------------------------------------------------------------
+  # Modulo de workflows (so ativo quando logado)
+  # -------------------------------------------------------------------
+  mod_workflows_server("workflows", con = con, sessao_auth = auth$operador)
   
   # -------------------------------------------------------------------
   # Timeout de inatividade (30 min)
@@ -169,14 +173,13 @@ app_server <- function(input, output, session) {
       )
     ),
     
-    # Painel: Workflows (futuro)
+    # Painel: Workflows
     bslib::nav_panel(
       title = "Workflows",
       icon = shiny::icon("diagram-project"),
-      .placeholder_em_breve(
-        "Workflows",
-        "Definicao de pipelines como o S&R 2001 para transformacao genetica. ",
-        "Disponivel no Dia 6."
+      htmltools::tags$div(
+        ui_breadcrumb(c("CultivaR", "Workflows")),
+        mod_workflows_ui("workflows")
       )
     ),
     
